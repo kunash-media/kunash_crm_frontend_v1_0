@@ -5,6 +5,8 @@ import { useAuth } from "../../context/AuthContext";
 import { logoutApi } from "../../api/authApi";
 import "./layout.css";
 
+import { X, FileText, FileX2 } from "lucide-react";
+
 
 /* ── Route → display name map ── add future routes here ── */
 const ROUTE_META = {
@@ -15,6 +17,9 @@ const ROUTE_META = {
   "/reports":     { label: "Reports",     parent: "Dashboard" },
   "/settings":    { label: "Settings",    parent: "Dashboard" },
 };
+
+const API_BASE = "http://localhost:9090/api/lead/v1";
+const FILE_ORIGIN = "http://localhost:9090";
 
 const NotificationPanel = ({ onClose }) => {
   const ref = useRef(null);
@@ -107,6 +112,131 @@ const ProfilePanel = ({ onClose, admin, onLogoutClick }) => {
   );
 };
 
+
+
+const STATUS_CFG = {
+  hot:  { label:"Hot",  color:"#ef4444", bg:"rgba(239,68,68,0.12)"  },
+  warm: { label:"Warm", color:"#f59e0b", bg:"rgba(245,158,11,0.12)" },
+  cold: { label:"Cold", color:"#3b82f6", bg:"rgba(59,130,246,0.12)" },
+};
+
+const fmtDate = (v) => {
+  if (!v) return "—";
+  const [y,m,d] = v.split("-");
+  return new Date(+y,+m-1,+d).toLocaleDateString("en-IN",{ day:"2-digit", month:"short", year:"numeric" });
+};
+const fmtDateTime = (v) => {
+  if (!v) return "—";
+  return new Date(v).toLocaleString("en-IN",{ day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" });
+};
+
+const NavStatusPill = ({ status }) => (
+  <span className="status-pill" style={{ color: STATUS_CFG[status]?.color, background: STATUS_CFG[status]?.bg }}>
+    {STATUS_CFG[status]?.label || status || "—"}
+  </span>
+);
+
+/* ── Search suggestion dropdown ── */
+const SearchSuggestions = ({ results, loading, onView, onClose }) => {
+  const ref = useRef(null);
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  return (
+    <div className="search-suggest-panel" ref={ref}>
+      {loading && <div className="search-suggest-empty">Searching…</div>}
+      {!loading && results.length === 0 && (
+        <div className="search-suggest-empty">No matching leads</div>
+      )}
+      {!loading && results.map((lead) => (
+        <div key={lead.leadPrimeId} className="search-suggest-item">
+          <div className="search-suggest-info">
+            <span className="search-suggest-name">{lead.firstName} {lead.lastName}</span>
+            <span className="search-suggest-meta">
+              {lead.phone} {lead.company ? `· ${lead.company}` : ""}
+            </span>
+          </div>
+          {lead.status && (
+            <span className={`search-suggest-status status-${(lead.status || "").toLowerCase()}`}>
+              {lead.status}
+            </span>
+          )}
+          <button className="search-suggest-view-btn" onClick={() => onView(lead.leadPrimeId)}>
+            View
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/* ── Lead view overlay (simple info popup) ── */
+const NavLeadViewOverlay = ({ lead, loading, onClose }) => {
+  const ref = useRef(null);
+  return (
+    <div className="mo-overlay" ref={ref} onClick={(e) => e.target === ref.current && onClose()}>
+      <div className="mo-card mo-view">
+        <div className="mo-head">
+          <div>
+            <p className="mo-sub">LEAD DETAILS</p>
+            <h2 className="mo-title">{loading ? "Loading…" : `${lead.firstName} ${lead.lastName}`}</h2>
+          </div>
+          <button className="mo-x" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="mo-body">
+          {loading ? (
+            <p className="search-suggest-empty">Fetching lead details…</p>
+          ) : (
+            <>
+              <div className="vg-section">
+                <p className="vg-section-title">Basic Information</p>
+                <div className="vg-grid">
+                  <div className="vg-item"><span className="vg-lbl">First Name</span><span className="vg-val">{lead.firstName}</span></div>
+                  <div className="vg-item"><span className="vg-lbl">Last Name</span><span className="vg-val">{lead.lastName}</span></div>
+                  <div className="vg-item"><span className="vg-lbl">Email</span><span className="vg-val">{lead.email}</span></div>
+                  <div className="vg-item"><span className="vg-lbl">Phone</span><span className="vg-val">{lead.phone}</span></div>
+                  <div className="vg-item"><span className="vg-lbl">Company</span><span className="vg-val">{lead.company || "—"}</span></div>
+                </div>
+              </div>
+              <div className="vg-section">
+                <p className="vg-section-title">Lead Details</p>
+                <div className="vg-grid">
+                  <div className="vg-item"><span className="vg-lbl">Requirement</span><span className="vg-val">{lead.requirementCategory || "—"}</span></div>
+                  <div className="vg-item"><span className="vg-lbl">Status</span><NavStatusPill status={lead.status} /></div>
+                  <div className="vg-item"><span className="vg-lbl">Follow-up</span><span className="vg-val">{fmtDate(lead.followUpDate)}</span></div>
+                  <div className="vg-item"><span className="vg-lbl">Created</span><span className="vg-val">{fmtDateTime(lead.createdAt)}</span></div>
+                </div>
+              </div>
+              <div className="vg-section">
+                <p className="vg-section-title">Document</p>
+                {lead.docFileUrl ? (
+                  <button
+                    className="btn-save"
+                    style={{ width: "fit-content" }}
+                    onClick={() => window.open(`${FILE_ORIGIN}${lead.docFileUrl}`, "_blank", "noopener,noreferrer")}
+                  >
+                    <FileText size={14} style={{ marginRight: 6 }} /> {lead.docFileName || "View Document"}
+                  </button>
+                ) : (
+                  <p className="doc-empty-msg"><FileX2 size={16} /> No document uploaded</p>
+                )}
+              </div>
+              <div className="vg-section">
+                <p className="vg-section-title">Notes</p>
+                <p className="vg-val vg-notes">{lead.notes || "—"}</p>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="mo-foot"><button className="btn-save" onClick={onClose}>Close</button></div>
+      </div>
+    </div>
+  );
+};
+
 // add this new component, right after ProfilePanel, before NavBar:
 const LogoutConfirmOverlay = ({ onConfirm, onCancel, loading }) => (
   <div className="logout-overlay">
@@ -125,15 +255,71 @@ const LogoutConfirmOverlay = ({ onConfirm, onCancel, loading }) => (
   </div>
 );
 
+
 const NavBar = () => {
   const location = useLocation();
   const navigate  = useNavigate();
   const { admin, markLoggedOut } = useAuth();
-  const [search,        setSearch]        = useState("");
+ const [search,          setSearch]          = useState("");
+const [suggestions,     setSuggestions]     = useState([]);
+const [showSuggestions, setShowSuggestions] = useState(false);
+const [searchLoading,   setSearchLoading]   = useState(false);
+const [viewLead,        setViewLead]        = useState(null);
+const [viewLoading,     setViewLoading]     = useState(false);
+const debounceRef = useRef(null);
+const abortRef     = useRef(null);
+
+  
   const [showNotif,     setShowNotif]     = useState(false);
   const [showProfile,   setShowProfile]   = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut,    setLoggingOut]    = useState(false);
+
+
+  // PLACEMENT: add after the new state declarations, before handleLogout
+
+useEffect(() => {
+  const query = search.trim();
+
+  if (debounceRef.current) clearTimeout(debounceRef.current);
+
+  if (query.length < 2) {
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setSearchLoading(false);
+    return;
+  }
+
+  debounceRef.current = setTimeout(async () => {
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setSearchLoading(true);
+    setShowSuggestions(true);
+
+    try {
+      // ⚠️ ASSUMPTION — adjust base path if your backend isn't proxied at same origin
+      const res = await fetch(
+        `${API_BASE}/search?query=${encodeURIComponent(query)}&limit=8`,
+        { signal: controller.signal, credentials: "include" }
+      );
+      if (!res.ok) throw new Error("Search failed");
+      const data = await res.json();
+      setSuggestions(data);
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        setSuggestions([]);
+      }
+    } finally {
+      setSearchLoading(false);
+    }
+  }, 300);
+
+  return () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  };
+}, [search]);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -152,12 +338,29 @@ const NavBar = () => {
   const meta     = ROUTE_META[location.pathname] || { label: "Page", parent: null };
   const unreadCount = 2;
 
-  const handleSearch = (e) => {
-    if (e.key === "Enter" && search.trim()) {
-      // wire up global search here when ready
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Escape") {
+      setShowSuggestions(false);
       setSearch("");
     }
   };
+
+  const handleViewLead = async (leadPrimeId) => {
+  setShowSuggestions(false);
+  setViewLead({});       // opens overlay immediately in loading state
+  setViewLoading(true);
+  try {
+    const res = await fetch(`${API_BASE}/${leadPrimeId}`);
+    if (!res.ok) throw new Error("Failed to load lead");
+    setViewLead(await res.json());
+  } catch (err) {
+    console.error("Failed to fetch lead detail:", err);
+    setViewLead(null);
+  } finally {
+    setViewLoading(false);
+  }
+};
 
   return (
     <header className="navbar">
@@ -183,23 +386,34 @@ const NavBar = () => {
       </div>
 
       {/* ── Center: Search ── */}
-      <div className="navbar-search-wrap">
-        <span className="navbar-search-icon" aria-hidden="true">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"/>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-        </span>
-        <input
-          className="navbar-search"
-          type="text"
-          placeholder="Search leads, clients, invoices…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={handleSearch}
-        />
-        <span className="navbar-search-kbd">⌘K</span>
-      </div>
+      
+<div className="navbar-search-wrap">
+  <span className="navbar-search-icon" aria-hidden="true">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8"/>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+  </span>
+  <input
+    className="navbar-search"
+    type="text"
+    placeholder="Search name, mobile, company…"
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    onKeyDown={handleSearchKeyDown}
+    onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+  />
+  <span className="navbar-search-kbd">⌘K</span>
+
+  {showSuggestions && (
+    <SearchSuggestions
+      results={suggestions}
+      loading={searchLoading}
+      onView={handleViewLead}
+      onClose={() => setShowSuggestions(false)}
+    />
+  )}
+</div>
 
       {/* ── Right: Actions ── */}
       <div className="navbar-right">
@@ -254,6 +468,15 @@ const NavBar = () => {
         </div>
 
       </div>
+
+      {viewLead && createPortal(
+        <NavLeadViewOverlay
+          lead={viewLead}
+          loading={viewLoading}
+          onClose={() => setViewLead(null)}
+        />,
+        document.body
+      )}
 
       {showLogoutConfirm && createPortal(
         <LogoutConfirmOverlay

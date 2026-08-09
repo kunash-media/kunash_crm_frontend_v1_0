@@ -56,6 +56,7 @@ const EMPTY_LEAD = {
   source: "Website",
   requirementCategory: REQUIREMENT_CATEGORIES[0],
   tags: "",
+  assignedStaffId: "",
 };
 
 const AddLead = () => {
@@ -65,6 +66,7 @@ const AddLead = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   const [attachments, setAttachments] = useState([]);
+  const [staffList, setStaffList] = useState([]);
   const [phoneCheck, setPhoneCheck] = useState({ checking: false, exists: false, checkedFor: "", existingLead: null });
   
   const [showBulkOverlay, setShowBulkOverlay] = useState(false);
@@ -74,6 +76,13 @@ const AddLead = () => {
   const [bulkResult, setBulkResult] = useState(null); // { totalRows, totalUploaded, totalSkipped, errors[] }
   const [bulkError, setBulkError] = useState("");
 
+
+   useEffect(() => {
+    fetch("http://localhost:9090/api/v1/staff/dropdown")
+      .then(res => res.json())
+      .then(data => setStaffList(data))
+      .catch(err => console.error("Failed to load staff dropdown:", err));
+  }, []);
   
   // Auto-set follow-up date to tomorrow by default
   useEffect(() => {
@@ -335,6 +344,7 @@ const exportBulkResultToWord = () => {
         followupStatus: form.followupStatus,
         notes: form.notes,
         leadConverted: false,
+        assignedStaffId: form.assignedStaffId ? Number(form.assignedStaffId) : null,
       };
 
       const formData = new FormData();
@@ -550,6 +560,23 @@ const exportBulkResultToWord = () => {
                 <select name="requirementCategory" value={form.requirementCategory} onChange={handleChange} disabled={isSaving}>
                   {REQUIREMENT_CATEGORIES.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="fg">
+                <label>Assign Staff</label>
+                <select
+                  name="assignedStaffId"
+                  value={form.assignedStaffId}
+                  onChange={handleChange}
+                  disabled={isSaving}
+                >
+                  <option value="">Unassigned</option>
+                  {staffList.map(s => (
+                    <option key={s.staffPrimeId} value={s.staffPrimeId}>
+                      {s.staffFirstName} {s.staffLastName} ({s.staffRole})
+                    </option>
                   ))}
                 </select>
               </div>

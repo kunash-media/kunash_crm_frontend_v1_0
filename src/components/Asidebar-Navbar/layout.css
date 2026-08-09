@@ -822,3 +822,90 @@
   from { opacity: 0; transform: translateY(10px) scale(0.98); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+
+/* ── Search suggestions dropdown ── */
+.navbar-search-wrap { position: relative; }
+
+.search-suggest-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  max-height: 340px;
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.search-suggest-empty {
+  padding: 14px 16px;
+  font-size: 13px;
+  color: #9a9a9a;
+  text-align: center;
+}
+
+.search-suggest-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  transition: background 0.15s ease;
+}
+.search-suggest-item:last-child { border-bottom: none; }
+.search-suggest-item:hover { background: rgba(249,115,22,0.05); }
+
+.search-suggest-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-suggest-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #2a2a2a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-suggest-meta {
+  font-size: 12px;
+  color: #8a8a8a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-suggest-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+.search-suggest-status.status-hot  { color: #ef4444; background: rgba(239,68,68,0.12); }
+.search-suggest-status.status-warm { color: #f59e0b; background: rgba(245,158,11,0.12); }
+.search-suggest-status.status-cold { color: #3b82f6; background: rgba(59,130,246,0.12); }
+
+.search-suggest-view-btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ea580c;
+  background: rgba(249,115,22,0.1);
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+.search-suggest-view-btn:hover { background: rgba(249,115,22,0.18); }

@@ -18,6 +18,7 @@ import {
 const API_BASE = "http://localhost:9090/api/lead/v1";
 const FILE_ORIGIN = "http://localhost:9090";
 const STAT_API_BASE = "http://localhost:9090/api/stat/v1";
+const STAFF_API_BASE = "http://localhost:9090/api/v1/staff";
 
 async function apiGetAbsolute(url) {
   const res = await fetch(url);
@@ -111,6 +112,7 @@ const EMPTY_FORM = {
   firstName:"", lastName:"", email:"", phone:"", company:"",
   status:"warm", priority:"P2", notes:"", followUpDate:"", followupStatus:"pending",
   requirementCategory: REQUIREMENT_CATEGORIES[0], source:"Website", tags:"",
+  assignedStaffId: "",
 };
 
 const ACCEPTED_FILE_TYPES = ".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp";
@@ -543,6 +545,48 @@ const LostReasonOverlay = ({ lead, onClose, onRevert, saving }) => (
   </OverlayShell>
 );
 
+/* ── OVERLAY: Assign / reassign staff ── */
+const AssignStaffOverlay = ({ lead, staffList, onClose, onSubmit, saving }) => {
+  const [staffId, setStaffId] = useState(lead.assignedStaffId ? String(lead.assignedStaffId) : "");
+
+  const submit = () => {
+    onSubmit(lead, staffId ? Number(staffId) : null);
+  };
+
+  return (
+    <OverlayShell onClose={onClose}>
+      <div className="mo-head">
+        <div><p className="mo-sub">ASSIGN STAFF</p><h2 className="mo-title">{lead.firstName} {lead.lastName}</h2></div>
+        <button className="mo-x" onClick={onClose}><X size={16} /></button>
+      </div>
+      <div className="mo-body">
+        <div className="fg">
+          <label>Staff Member</label>
+          <select value={staffId} disabled={saving} onChange={(e) => setStaffId(e.target.value)}>
+            <option value="">Unassigned</option>
+            {staffList.map((s) => (
+              <option key={s.staffPrimeId} value={s.staffPrimeId}>
+                {s.staffFirstName} {s.staffLastName} ({s.staffRole})
+              </option>
+            ))}
+          </select>
+        </div>
+        {lead.assignedStaffName && (
+          <p className="doc-empty-msg" style={{ marginTop: 8 }}>
+            Currently assigned: {lead.assignedStaffName}
+          </p>
+        )}
+      </div>
+      <div className="mo-foot">
+        <button className="btn-cancel" onClick={onClose} disabled={saving}>Cancel</button>
+        <button className="btn-save" onClick={submit} disabled={saving}>
+          {saving ? <Loader2 size={15} className="spin" /> : "Save Assignment"}
+        </button>
+      </div>
+    </OverlayShell>
+  );
+};
+
 /* ── OVERLAY: Next follow-up ── */
 const NextFollowupOverlay = ({ lead, onClose, onSubmit, saving }) => {
   const [date, setDate] = useState("");
@@ -638,7 +682,10 @@ const LeadDetailOverlay = ({ lead, onClose, onDoc }) => (
           <div className="vg-item"><span className="vg-lbl">Priority</span><PriorityPill priority={lead.priority} /></div>
           <div className="vg-item"><span className="vg-lbl">Follow-up</span><span className="vg-val">{fmtDate(lead.followUpDate)}</span></div>
           <div className="vg-item"><span className="vg-lbl">Follow-up Status</span><FollowupStatusPill status={lead.followupStatus} /></div>
+          
+          <div className="vg-item"><span className="vg-lbl">Assigned Staff</span><span className="vg-val">{lead.assignedStaffName || "Unassigned"}</span></div>
           <div className="vg-item"><span className="vg-lbl">Created</span><span className="vg-val">{fmtDateTime(lead.createdAt)}</span></div>
+        
         </div>
       </div>
       <div className="vg-section">
@@ -661,11 +708,12 @@ const LeadDetailOverlay = ({ lead, onClose, onDoc }) => (
 );
 
 /* ── Edit / Add form (now with file upload, matching AddLead.jsx) ── */
-const LeadFormModal = ({ date, lead, onClose, onSave, saving }) => {
+const LeadFormModal = ({ date, lead, staffList, onClose, onSave, saving }) => {
   const [form, setForm] = useState(() => ({
     ...EMPTY_FORM,
-    ...(lead ? { ...lead } : { followUpDate: toKey(date || today) }),
+    ...(lead ? { ...lead, assignedStaffId: lead.assignedStaffId || "" } : { followUpDate: toKey(date || today), assignedStaffId: "" }),
   }));
+  
   const [errs, setErrs] = useState({});
   const [docFile, setDocFile] = useState(null);
   const [fileErr, setFileErr] = useState("");
@@ -776,6 +824,20 @@ if (phoneCheck.checked && phoneCheck.exists) {
               {REQUIREMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
+
+          <div className="fg">
+            <label>Assign Staff</label>
+            <select value={form.assignedStaffId} disabled={saving} onChange={(e) => set("assignedStaffId", e.target.value)}>
+              <option value="">Unassigned</option>
+              {(staffList || []).map((s) => (
+                <option key={s.staffPrimeId} value={s.staffPrimeId}>
+                  {s.staffFirstName} {s.staffLastName} ({s.staffRole})
+                </option>
+              ))}
+            </select>
+          </div>
+
+
           <div className="fg">
             <label>Status</label>
             <select value={form.status} disabled={saving} onChange={(e) => set("status", e.target.value)}>
@@ -1224,12 +1286,17 @@ const ExportOverlay = ({ statusFilter, onClose, onExport }) => {
 };
 
 /* ── Shared action-button row (used by both tabs) ── */
-const ActionRow = ({ lead, busyId, onView, onEdit, onDone, onNextFollowup, onHistory, onDoc, onConvert, onDelete, onLost }) => {
+const ActionRow = ({ lead, busyId, onView, onEdit, onDone, onNextFollowup, onHistory, onDoc, onConvert, onDelete, onLost, onAssignStaff }) => {
   const isBusy = busyId === lead.leadPrimeId;
   return (
     <div className="act-row">
       <button className="act-btn act-v" title="View" onClick={() => onView(lead)} disabled={isBusy}><Eye size={15} /></button>
       <button className="act-btn act-e" title="Edit" onClick={() => onEdit(lead)} disabled={isBusy}><Pencil size={15} /></button>
+      {onAssignStaff && (
+        <button className="act-btn act-assign" title={lead.assignedStaffName ? `Assigned: ${lead.assignedStaffName}` : "Assign staff"} onClick={() => onAssignStaff(lead)} disabled={isBusy}>
+          <Users size={15} />
+        </button>
+      )}      
       {onDone && <button className="act-btn act-done" title="Mark done" onClick={() => onDone(lead)} disabled={isBusy}><CheckCircle2 size={15} /></button>}
       {onNextFollowup && <button className="act-btn act-next" title="Next follow-up" onClick={() => onNextFollowup(lead)} disabled={isBusy}><CalendarPlus size={15} /></button>}
       <button className="act-btn act-hist" title="History" onClick={() => onHistory(lead)} disabled={isBusy}><History size={15} /></button>
@@ -1274,6 +1341,8 @@ const Dashboard = () => {
   const [viewLostReason, setViewLostReason] = useState(null);
 
   const [celebrate,   setCelebrate]   = useState(null);
+  const [assignStaffLead, setAssignStaffLead] = useState(null);
+  const [staffList, setStaffList] = useState([]);
 
   const [bulkEmailOpen, setBulkEmailOpen] = useState(false);
   const [bulkWhatsAppOpen, setBulkWhatsAppOpen] = useState(false);
@@ -1298,7 +1367,26 @@ const Dashboard = () => {
     }
   }, []);
 
+  
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
+
+  const fetchStaffList = useCallback(async () => {
+    try {
+      const res = await fetch(`${STAFF_API_BASE}/dropdown`);
+      if (!res.ok) throw new Error(`Failed to load staff (${res.status})`);
+      const data = await res.json();
+      setStaffList(data);
+    } catch (err) {
+      console.error("Failed to load staff dropdown:", err);
+      // non-blocking — dashboard still works without staff assignment if this fails
+    }
+  }, []);
+
+  useEffect(() => { fetchStaffList(); }, [fetchStaffList]);
+
+
+
+  
 
 const visibleLeads = useMemo(
     () => leads.filter((l) => !l.leadConverted && !l.deletedLead && l.leadOutcome !== "lost"),
@@ -1411,6 +1499,8 @@ const activeList = activeTab === "pipeline" ? pipelineLeads : activeTab === "nex
         requirementCategory: form.requirementCategory, tags: form.tags || "",
         followUpDate: form.followUpDate, followupStatus: form.followupStatus || "pending",
         notes: form.notes, leadConverted: false,
+        assignedStaffId: form.assignedStaffId ? Number(form.assignedStaffId) : null,
+
       };
       if (isEdit) {
         await apiSendLeadForm(`/${form.leadPrimeId}`, "PATCH", payload, docFile);
@@ -1624,6 +1714,31 @@ const activeList = activeTab === "pipeline" ? pipelineLeads : activeTab === "nex
       setBusyId(null);
     }
   };
+
+
+   const handleAssignStaffSubmit = async (lead, staffId) => {
+    setBusyId(lead.leadPrimeId);
+    try {
+      const payload = {
+        firstName: lead.firstName, lastName: lead.lastName, email: lead.email, phone: lead.phone,
+        company: lead.company, status: lead.status, priority: lead.priority, source: lead.source || "Website",
+        requirementCategory: lead.requirementCategory, tags: lead.tags || "",
+        followUpDate: lead.followUpDate, followupStatus: lead.followupStatus || "pending",
+        notes: lead.notes, leadConverted: lead.leadConverted || false,
+        assignedStaffId: staffId,
+      };
+      await apiSendLeadForm(`/${lead.leadPrimeId}`, "PATCH", payload, null);
+      toast.success(staffId ? "Staff assigned" : "Staff unassigned");
+      setAssignStaffLead(null);
+      await fetchLeads();
+    } catch (err) {
+      console.error("Assign staff failed:", err);
+      toast.error(err.message || "Failed to assign staff");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
 
   /* ── Bulk email (dummy — untouched) ── */
   const handleBulkSend = (template) => {
@@ -1867,6 +1982,7 @@ const activeList = activeTab === "pipeline" ? pipelineLeads : activeTab === "nex
                             onDone={setDoneLead} onNextFollowup={setNextLead}
                             onHistory={openHistory} onDoc={openDoc}
                             onConvert={setConvertLead} onDelete={delOne} onLost={setLostLead}
+                            onAssignStaff={setAssignStaffLead}
                           />
                         )}
                       </td>
@@ -1894,9 +2010,10 @@ const activeList = activeTab === "pipeline" ? pipelineLeads : activeTab === "nex
           onDoc={openDoc}
         />
       )}
-      {(editLead || addingNew) && (
+       {(editLead || addingNew) && (
         <LeadFormModal
           lead={editLead}
+          staffList={staffList}
           saving={busyId !== null}
           onClose={() => { setEditLead(null); setAddingNew(false); }}
           onSave={handleSave}
@@ -1908,7 +2025,9 @@ const activeList = activeTab === "pipeline" ? pipelineLeads : activeTab === "nex
       {histLead    && <HistoryOverlay lead={histLead} history={histData} loading={histLoading} onClose={() => { setHistLead(null); setHistData([]); }} />}
       {convertLead && <ConvertOverlay lead={convertLead} saving={busyId === convertLead.leadPrimeId} onClose={() => setConvertLead(null)} onConfirm={handleConvertConfirm} />}
       {lostLead    && <LostOverlay lead={lostLead} saving={busyId === lostLead.leadPrimeId} onClose={() => setLostLead(null)} onSubmit={handleLostSubmit} />}
-            {viewLostReason && <LostReasonOverlay lead={viewLostReason} saving={busyId === viewLostReason.leadPrimeId} onClose={() => setViewLostReason(null)} onRevert={(l) => { setViewLostReason(null); handleRevertLost(l); }} />}
+      {assignStaffLead && <AssignStaffOverlay lead={assignStaffLead} staffList={staffList} saving={busyId === assignStaffLead.leadPrimeId} onClose={() => setAssignStaffLead(null)} onSubmit={handleAssignStaffSubmit} />}
+      
+      {viewLostReason && <LostReasonOverlay lead={viewLostReason} saving={busyId === viewLostReason.leadPrimeId} onClose={() => setViewLostReason(null)} onRevert={(l) => { setViewLostReason(null); handleRevertLost(l); }} />}
       {deleteTarget && (
         <DeleteConfirmOverlay
           label={deleteTarget.type === "one" ? "Delete this lead?" : `Delete ${selected.length} leads?`}
