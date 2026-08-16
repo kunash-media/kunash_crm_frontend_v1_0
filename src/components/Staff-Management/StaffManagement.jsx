@@ -2,6 +2,7 @@ import "../Staff-Management/StaffManagement.css";
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import {Eye, Pencil} from "lucide-react";
 
 const API_STAFF = "http://localhost:9090/api/v1/staff";
 const API_LEAD = "http://localhost:9090/api/lead/v1";
@@ -277,8 +278,8 @@ const StaffManagement = () => {
                   <td>{s.staffEmail}</td>
                   <td>{s.joiningDate ? new Date(s.joiningDate).toLocaleDateString("en-IN") : "—"}</td>
                   <td className="staff-actions">
-                    <button className="staff-action-btn" title="View" onClick={() => openView(s)}>👁</button>
-                    <button className="staff-action-btn" title="Edit" onClick={() => openEdit(s)}>✎</button>
+                    <button className="staff-action-btn" title="View" onClick={() => openView(s)}><Eye size={15}style={{marginLeft:6}} ></Eye></button>
+                    <button className="staff-action-btn" title="Edit" onClick={() => openEdit(s)}><Pencil size={15} style={{marginLeft:6}}></Pencil></button>
                     <button className="staff-action-btn staff-action-danger" title="Delete" onClick={() => openDeleteConfirm(s)}>🗑</button>
                   </td>
                 </tr>

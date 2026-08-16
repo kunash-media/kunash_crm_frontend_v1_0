@@ -13,6 +13,7 @@ import ClientList from "./components/Client-List/ClientList.jsx";
 import WFormatter from "./components/W-Formatter/WFormatter.jsx";
 import LoginForm from "./components/Login-Form/LoginForm.jsx";
 import StaffManagement from "./components/Staff-Management/StaffManagement.jsx";
+import Reports from "./components/Reports/Reports.jsx";
 
 /* ─────────────────────────────────────────────────────────────
    AUTH GUARD — dummy session check for now.
@@ -73,10 +74,10 @@ function App() {
       <Route path="/leads/add" element={<ProtectedRoute><AppLayout><AddLead /></AppLayout></ProtectedRoute>} />
       <Route path="/clients" element={<ProtectedRoute><AppLayout><ClientList /></AppLayout></ProtectedRoute>} />
       <Route path="/invoices" element={<ProtectedRoute><AppLayout><Invoice /></AppLayout></ProtectedRoute>} />
-      <Route path="/reports" element={<ProtectedRoute><AppLayout><ComingSoon title="Reports" /></AppLayout></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute><AppLayout><Reports/></AppLayout></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><AppLayout><ComingSoon title="Settings" /></AppLayout></ProtectedRoute>} />
-      <Route path="/w-formatter" element={<ProtectedRoute><AppLayout><WFormatter title="W-formatter" /></AppLayout></ProtectedRoute>} />
-      <Route path="/staff" element={<ProtectedRoute><AppLayout><StaffManagement title="staff" /></AppLayout></ProtectedRoute>} />
+      <Route path="/w-formatter" element={<ProtectedRoute><AppLayout><WFormatter /></AppLayout></ProtectedRoute>} />
+      <Route path="/staff" element={<ProtectedRoute><AppLayout><StaffManagement /></AppLayout></ProtectedRoute>} />
 
 
       <Route path="*" element={<ProtectedRoute><AppLayout><ComingSoon title="Page Not Found" /></AppLayout></ProtectedRoute>} />

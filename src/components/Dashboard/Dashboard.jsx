@@ -1094,7 +1094,7 @@ async function fetchMeetLink(lead, dateStr, timeStr) {
   return data.meetLink;
 }
 
-/* ── OVERLAY: Bulk WhatsApp forward — pick a template first, then send ── */
+
 /* ── OVERLAY: Bulk WhatsApp forward — pick a template first, then send ── */
 const BulkWhatsAppOverlay = ({ leads, onClose }) => {
   const [template, setTemplate] = useState(null); // null = still choosing
@@ -1251,11 +1251,11 @@ const BulkWhatsAppOverlay = ({ leads, onClose }) => {
 };
 
 /* ── OVERLAY: Export to Excel ── */
-const ExportOverlay = ({ statusFilter, onClose, onExport }) => {
+const ExportOverlay = ({ statusFilter, staffFilterLabel, onClose, onExport }) => {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [month, setMonth] = useState("");
-  const noFilter = !from && !to && !month && statusFilter === "all";
+  const noFilter = !from && !to && !month && statusFilter === "all" && !staffFilterLabel;
 
   return (
     <OverlayShell onClose={onClose}>
@@ -1269,10 +1269,10 @@ const ExportOverlay = ({ statusFilter, onClose, onExport }) => {
           <div className="fg"><label>To Date</label><input type="date" value={to} onChange={(e)=>{setTo(e.target.value); setMonth("");}} /></div>
           <div className="fg fg-full"><label>Or Pick a Month</label><input type="month" value={month} onChange={(e)=>{setMonth(e.target.value); setFrom(""); setTo("");}} /></div>
         </div>
-        <p className="export-note">
+         <p className="export-note">
           {noFilter
             ? "No filters selected — this will export all leads."
-            : `Exporting leads${statusFilter!=="all" ? ` marked "${STATUS_CFG[statusFilter]?.label}"` : ""}${month ? ` for ${month}` : (from||to) ? ` from ${from||"…"} to ${to||"…"}` : ""}.`}
+            : `Exporting leads${statusFilter!=="all" ? ` marked "${STATUS_CFG[statusFilter]?.label}"` : ""}${staffFilterLabel ? ` assigned to ${staffFilterLabel}` : ""}${month ? ` for ${month}` : (from||to) ? ` from ${from||"…"} to ${to||"…"}` : ""}.`}
         </p>
       </div>
       <div className="mo-foot">
@@ -1350,6 +1350,7 @@ const Dashboard = () => {
 
   const [search,   setSearch]   = useState("");
   const [stFilter, setStFilter] = useState("all");
+    const [staffFilter, setStaffFilter] = useState("all"); // "all" | "unassigned" | staffPrimeId (string)
   const [selected, setSelected] = useState([]);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -1458,20 +1459,31 @@ const visibleLeads = useMemo(
       .slice(0, 6);
   }, [visibleLeads]);
 
-  const pipelineLeads = useMemo(() =>
+
+  const matchesStaffFilter = (l) => {
+    if (staffFilter === "all") return true;
+    if (staffFilter === "unassigned") return !l.assignedStaffId;
+    return String(l.assignedStaffId) === staffFilter;
+  };
+
+   const pipelineLeads = useMemo(() =>
     visibleLeads.filter((l) =>
       (stFilter === "all" || l.status === stFilter) &&
+      matchesStaffFilter(l) &&
       [l.firstName, l.lastName, l.email, l.company || ""].some((f) => (f||"").toLowerCase().includes(search.toLowerCase()))
     ),
-  [visibleLeads, stFilter, search]);
+  [visibleLeads, stFilter, staffFilter, search]);
 
   const nextFollowupLeads = useMemo(() =>
     visibleLeads.filter((l) =>
       (l.followupCount || 0) > 1 &&
       (stFilter === "all" || l.status === stFilter) &&
+      matchesStaffFilter(l) &&
       [l.firstName, l.lastName, l.email, l.company || ""].some((f) => (f||"").toLowerCase().includes(search.toLowerCase()))
     ),
-  [visibleLeads, stFilter, search]);
+  [visibleLeads, stFilter, staffFilter, search]);
+
+  
 
   const lostFilteredLeads = useMemo(() =>
     lostLeadsList.filter((l) =>
@@ -1750,7 +1762,7 @@ const activeList = activeTab === "pipeline" ? pipelineLeads : activeTab === "nex
 
   /* ── Export to Excel ── */
   const handleExport = ({ from, to, month }) => {
-    let rows = visibleLeads.filter((l) => stFilter === "all" || l.status === stFilter);
+    let rows = visibleLeads.filter((l) => (stFilter === "all" || l.status === stFilter) && matchesStaffFilter(l));
     if (month) {
       rows = rows.filter((l) => l.followUpDate && l.followUpDate.startsWith(month));
     } else if (from || to) {
@@ -1761,12 +1773,15 @@ const activeList = activeTab === "pipeline" ? pipelineLeads : activeTab === "nex
         return true;
       });
     }
-    const data = rows.map((l) => ({
+    
+     const data = rows.map((l) => ({
       "First Name": l.firstName, "Last Name": l.lastName, "Email": l.email, "Phone": l.phone,
       "Company": l.company || "", "Requirement": l.requirementCategory || "",
       "Status": STATUS_CFG[l.status]?.label || l.status, "Priority": l.priority,
       "Follow-up Date": fmtDate(l.followUpDate), "Follow-up Status": l.followupStatus === "done" ? "Done" : "Pending",
+      "Assigned Staff": l.assignedStaffName || "Unassigned",
     }));
+    
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Leads");
@@ -1919,10 +1934,23 @@ const activeList = activeTab === "pipeline" ? pipelineLeads : activeTab === "nex
                 </button>
               ))}
             </div>
+            <select
+              className="staff-filter-select"
+              value={staffFilter}
+              onChange={(e) => setStaffFilter(e.target.value)}
+            >
+              <option value="all">All Staff</option>
+              <option value="unassigned">Unassigned</option>
+              {staffList.map((s) => (
+                <option key={s.staffPrimeId} value={String(s.staffPrimeId)}>
+                  {s.staffFirstName} {s.staffLastName} ({s.staffRole})
+                </option>
+              ))}
+            </select>
             <button
               className="btn-reset-filters"
-              onClick={() => { setSearch(""); setStFilter("all"); setSelected([]); }}
-              disabled={!search && stFilter === "all" && selected.length === 0}
+              onClick={() => { setSearch(""); setStFilter("all"); setStaffFilter("all"); setSelected([]); }}
+              disabled={!search && stFilter === "all" && staffFilter === "all" && selected.length === 0}
             >
               Reset
             </button>
@@ -2038,8 +2066,8 @@ const activeList = activeTab === "pipeline" ? pipelineLeads : activeTab === "nex
       )}
       {celebrate       && <CelebrationOverlay name={celebrate} />}
       {bulkEmailOpen    && <BulkEmailOverlay count={selected.length} onClose={() => setBulkEmailOpen(false)} onSend={handleBulkSend} />}
-      {bulkWhatsAppOpen && <BulkWhatsAppOverlay key={selectedLeadsForWA.map(l=>l.leadPrimeId).join(",")} leads={selectedLeadsForWA} onClose={() => setBulkWhatsAppOpen(false)} />}      {exportOpen       && <ExportOverlay statusFilter={stFilter} onClose={() => setExportOpen(false)} onExport={handleExport} />}
-    </div>
+      {bulkWhatsAppOpen && <BulkWhatsAppOverlay key={selectedLeadsForWA.map(l=>l.leadPrimeId).join(",")} leads={selectedLeadsForWA} onClose={() => setBulkWhatsAppOpen(false)} />}      
+      {exportOpen       && <ExportOverlay statusFilter={stFilter} staffFilterLabel={staffFilter === "all" ? "" : staffFilter === "unassigned" ? "Unassigned" : (staffList.find(s => String(s.staffPrimeId) === staffFilter)?.staffFirstName || "")} onClose={() => setExportOpen(false)} onExport={handleExport} />}    </div>
   );
 };
 

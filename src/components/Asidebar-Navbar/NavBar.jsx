@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, lazy } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { logoutApi } from "../../api/authApi";
 import "./layout.css";
+import {User} from "lucide-react";
 
 import { X, FileText, FileX2 } from "lucide-react";
 
@@ -13,8 +14,10 @@ const ROUTE_META = {
   "/dashboard":   { label: "Dashboard",   parent: null },
   "/leads/add":   { label: "Add Lead",    parent: "Dashboard" },
   "/clients":     { label: "Client List", parent: "Dashboard" },
+  "/staff":       { label: "Staff Management", parent: "Dashboard" },
   "/invoices":    { label: "Invoice",     parent: "Dashboard" },
   "/reports":     { label: "Reports",     parent: "Dashboard" },
+  "/w-formatter":  { label: "W-formmater", parent: "Dashboard"},
   "/settings":    { label: "Settings",    parent: "Dashboard" },
 };
 
@@ -89,7 +92,7 @@ const ProfilePanel = ({ onClose, admin, onLogoutClick }) => {
       <div className="profile-divider" />
       <ul className="profile-menu">
         {[
-          { icon: "👤", label: "My Profile" },
+          { icon: <User/>, label: "My Profile" },
         ].map((item) => (
           <li key={item.label}>
             <button className="profile-menu-item" onClick={item.action || onClose}>
